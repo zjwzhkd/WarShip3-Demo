@@ -1,0 +1,8 @@
+.DS_Store
+*~
+tags
+
+# Project files
+Project/EWARM/*
+!Project/EWARM/*.ew?
+!Project/EWARM/*.icf
