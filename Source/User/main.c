@@ -11,6 +11,9 @@
 
 void main(void)
 {
+    sched_Init();
+    cpu_Init();
+
     while (1)
     {
     }

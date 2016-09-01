@@ -317,7 +317,7 @@
           <state>$PROJ_DIR$\..\..\Source\CPU\common\include</state>
           <state>$PROJ_DIR$\..\..\Source\CPU\stm32f1\include</state>
           <state>$PROJ_DIR$\..\..\Source\CPU\stm32f1\config</state>
-          <state>$PROJ_DIR$\..\..\Source\CPU\stm32f1\device</state>
+          <state>$PROJ_DIR$\..\..\Source\CPU\stm32f1\device\include</state>
           <state>$PROJ_DIR$\..\..\Source\CPU\stm32f1\fwlib\inc</state>
           <state>$PROJ_DIR$\..\..\Source\Scheduler\include</state>
           <state>$PROJ_DIR$\..\..\Source\Scheduler\config</state>
@@ -972,6 +972,9 @@
     <group>
       <name>common</name>
       <file>
+        <name>$PROJ_DIR$\..\..\Source\CPU\common\cpulib_heap.c</name>
+      </file>
+      <file>
         <name>$PROJ_DIR$\..\..\Source\CPU\common\cpulib_list.c</name>
       </file>
     </group>
@@ -1062,6 +1065,15 @@
         <name>$PROJ_DIR$\..\..\Source\CPU\stm32f1\fwlib\src\stm32f10x_wwdg.c</name>
       </file>
     </group>
+    <file>
+      <name>$PROJ_DIR$\..\..\Source\CPU\stm32f1\cpu.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\Source\CPU\stm32f1\cpu_port.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\Source\CPU\stm32f1\cpu_tick.c</name>
+    </file>
   </group>
   <group>
     <name>Scheduler</name>
