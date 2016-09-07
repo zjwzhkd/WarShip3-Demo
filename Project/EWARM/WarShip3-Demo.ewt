@@ -1049,9 +1049,18 @@
     </settings>
   </configuration>
   <group>
+    <name>Board</name>
+    <file>
+      <name>$PROJ_DIR$\..\..\Source\Board\bsp.c</name>
+    </file>
+  </group>
+  <group>
     <name>CPU</name>
     <group>
       <name>common</name>
+      <file>
+        <name>$PROJ_DIR$\..\..\Source\CPU\common\cpulib_fifo.c</name>
+      </file>
       <file>
         <name>$PROJ_DIR$\..\..\Source\CPU\common\cpulib_heap.c</name>
       </file>

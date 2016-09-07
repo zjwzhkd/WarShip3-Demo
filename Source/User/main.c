@@ -8,12 +8,13 @@
 
 #include "cpu.h"
 #include "sched.h"
+#include "bsp.h"
 
 void main(void)
 {
     sched_Init();
     cpu_Init();
-
+    bsp_Init();
     while (1)
     {
     }
