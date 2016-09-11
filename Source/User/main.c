@@ -12,10 +12,22 @@
 
 void main(void)
 {
+char *recvbuf;
+
     sched_Init();
     cpu_Init();
     bsp_Init();
+
+    recvbuf = (char *)bsp_DebugGetReceiveBuffer();
+    bsp_DebugStartReceive();
     while (1)
     {
+        if ( bsp_DebugIsReceiveComplete() )
+        {
+            debug_printf(recvbuf);
+            debug_printf("\r\n");
+            cpu_DelayMs(10);
+            bsp_DebugStartReceive();
+        }
     }
 }

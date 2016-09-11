@@ -973,6 +973,9 @@
     <file>
       <name>$PROJ_DIR$\..\..\Source\Board\bsp.c</name>
     </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\Source\Board\bsp_debug.c</name>
+    </file>
   </group>
   <group>
     <name>CPU</name>
