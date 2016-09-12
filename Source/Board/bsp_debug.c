@@ -33,7 +33,7 @@ static void prvUartStartSend(void);
 /**
  * 初始化串口调试
  */
-void bsp_DebugInit(void)
+void bsp_Debug_Init(void)
 {
     INIT_FIFO(&uartTxFifo);
     INIT_FIFO(&uartRxFifo);
@@ -49,7 +49,7 @@ void bsp_DebugInit(void)
  *
  * @note: 当接收到CR,LF,或者接收缓存满时, 完成一行内容的接收, 接收完成标志置位
  */
-void bsp_DebugStartReceive(void)
+void bsp_Debug_ReceiveNew(void)
 {
 cpu_t cpu_sr;
 
@@ -66,7 +66,7 @@ cpu_t cpu_sr;
  *
  * @return: 布尔值, 完成接收返回true, 反之返回false
  */
-bool bsp_DebugIsReceiveComplete(void)
+bool bsp_Debug_IsReceiveComplete(void)
 {
     if ( debug_dev.rx_flag )
     {
@@ -83,7 +83,7 @@ bool bsp_DebugIsReceiveComplete(void)
  *
  * @return: 返回接收缓存地址
  */
-uint8_t *bsp_DebugGetReceiveBuffer(void)
+uint8_t *bsp_Debug_GetReceiveBuffer(void)
 {
     return (uartRxFifo.buf);
 }
@@ -93,7 +93,7 @@ uint8_t *bsp_DebugGetReceiveBuffer(void)
  *
  * @return: 返回已接收内容的长度
  */
-uint16_t bsp_DebugGetReceiveLen(void)
+uint16_t bsp_Debug_GetReceiveLen(void)
 {
     return (fifo_GetCount(debug_dev.rx_fifo));
 }

@@ -9,25 +9,16 @@
 #include "cpu.h"
 #include "sched.h"
 #include "bsp.h"
+#include "usmart.h"
 
 void main(void)
 {
-char *recvbuf;
-
     sched_Init();
     cpu_Init();
     bsp_Init();
+    usmart_dev.init(CPU_FREQ_HZ/1000000);
 
-    recvbuf = (char *)bsp_DebugGetReceiveBuffer();
-    bsp_DebugStartReceive();
     while (1)
     {
-        if ( bsp_DebugIsReceiveComplete() )
-        {
-            debug_printf(recvbuf);
-            debug_printf("\r\n");
-            cpu_DelayMs(10);
-            bsp_DebugStartReceive();
-        }
     }
 }

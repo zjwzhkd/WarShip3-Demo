@@ -18,10 +18,10 @@
 #define BSP_DEBUG_RX_BUF_SIZE       ( 256 )     /* 串口接收缓存大小           */
 
 /* 接口函数 ------------------------------------------------------------------*/
-void bsp_DebugInit(void);
-void bsp_DebugStartReceive(void);
-bool bsp_DebugIsReceiveComplete(void);
-uint8_t *bsp_DebugGetReceiveBuffer(void);
-uint16_t bsp_DebugGetReceiveLen(void);
+void bsp_Debug_Init(void);
+void bsp_Debug_ReceiveNew(void);
+bool bsp_Debug_IsReceiveComplete(void);
+uint8_t *bsp_Debug_GetReceiveBuffer(void);
+uint16_t bsp_Debug_GetReceiveLen(void);
 
 #endif  /* __BSP_DEBUG_H */

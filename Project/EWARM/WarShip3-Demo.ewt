@@ -1225,6 +1225,18 @@
       <name>$PROJ_DIR$\..\..\Source\User\main.c</name>
     </file>
   </group>
+  <group>
+    <name>USMART</name>
+    <file>
+      <name>$PROJ_DIR$\..\..\Source\USMART\usmart.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\Source\USMART\usmart_config.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\Source\USMART\usmart_str.c</name>
+    </file>
+  </group>
 </project>
 
 

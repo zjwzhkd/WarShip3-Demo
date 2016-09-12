@@ -15,5 +15,5 @@
 
 void bsp_Init(void)
 {
-    bsp_DebugInit();
+    bsp_Debug_Init();
 }
