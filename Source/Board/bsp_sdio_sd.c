@@ -22,7 +22,7 @@
                                                     SDIO_FLAG_CMDREND  | SDIO_FLAG_CMDSENT  | SDIO_FLAG_DATAEND  |\
                                                     SDIO_FLAG_DBCKEND))
 #define SDIO_CMD0TIMEOUT                ((uint32_t)0x00010000)
-#define SDIO_FIFO_ADDRESS               ((uint32_t)0x40018080)
+#define SDIO_FIFO_ADDRESS               ((uint32_t)&SDIO->FIFO)
 
 /*
     SDIO时钟计算公式:SDIO_CK时钟=SDIOCLK/[clkdiv+2];其中,SDIOCLK一般为72Mhz,
@@ -105,7 +105,7 @@ static uint32_t CardType = SDIO_STD_CAPACITY_SD_CARD_V1_1;
 static uint32_t CSD_Tab[4], CID_Tab[4], RCA = 0;
 /*SD卡状态数据*/
 static uint8_t SDSTATUS_Tab[16];
-/*需要发送停止传输命令的标志(用于DMA传输)*/
+/*标志是否需要停止传输命令(用于DMA传输)*/
 static __IO uint32_t StopCondition = 0;
 /*传输错误码(用于DMA传输)*/
 static __IO SD_Error TransferError = SD_OK;
@@ -148,6 +148,375 @@ static void SD_LowLevel_DMA_RxConfig(uint32_t *BufferDST, uint32_t BufferSize);
                                     私有函数
 
 *******************************************************************************/
+/* SD卡操作 ------------------------------------------------------------------*/
+
+/* 命令响应 ------------------------------------------------------------------*/
+/**
+ * 检查CMD0的执行状态
+ *
+ * @return: SD卡错误码
+ */
+static SD_Error CmdError(void)
+{
+SD_Error errorstatus = SD_OK;
+uint32_t timeout = SDIO_CMD0TIMEOUT;;
+
+    /*等待命令发送完成(无需响应)*/
+    while ((timeout > 0) && (SDIO_GetFlagStatus(SDIO_FLAG_CMDSENT) == RESET))
+    {
+        timeout--;
+    }
+
+    if (timeout == 0)
+    {
+        errorstatus = SD_CMD_RSP_TIMEOUT;
+        return(errorstatus);
+    }
+
+    /*清除所有SDIO静态标志*/
+    SDIO_ClearFlag(SDIO_STATIC_FLAGS);
+
+    return(errorstatus);
+}
+
+/**
+ * 检查R7响应的错误状态, 用于检查CMD8的执行情况
+ *
+ * @return: SD卡错误码
+ */
+static SD_Error CmdResp7Error(void)
+{
+SD_Error errorstatus = SD_OK;
+uint32_t status;
+uint32_t timeout = SDIO_CMD0TIMEOUT;
+
+    status = SDIO->STA;
+    /*响应CRC错误/接收到响应(CRC校验成功)/命令响应超时*/
+    while (!(status & (SDIO_FLAG_CCRCFAIL | SDIO_FLAG_CMDREND | SDIO_FLAG_CTIMEOUT)) && (timeout > 0))
+    {
+        timeout--;
+        status = SDIO->STA;
+    }
+
+    /*响应超时*/
+    if ((timeout == 0) || (status & SDIO_FLAG_CTIMEOUT))
+    {
+        /*当前卡不是V2.0兼容卡, 或者不支持设定的电压范围*/
+        errorstatus = SD_CMD_RSP_TIMEOUT;
+        SDIO_ClearFlag(SDIO_FLAG_CTIMEOUT);
+        return(errorstatus);
+    }
+
+    /*成功接收到响应*/
+    if (status & SDIO_FLAG_CMDREND)
+    {
+        /*当前卡是V2.0兼容卡*/
+        errorstatus = SD_OK;
+        SDIO_ClearFlag(SDIO_FLAG_CMDREND);
+        return(errorstatus);
+    }
+
+    return(errorstatus);
+}
+
+/**
+ * 检查R1响应的错误状态, 用于检查普通命令的执行情况
+ *
+ * @param cmd: 当前发送的命令
+ *
+ * @return: SD卡错误码
+ */
+static SD_Error CmdResp1Error(uint8_t cmd)
+{
+SD_Error errorstatus = SD_OK;
+uint32_t status;
+uint32_t response_r1;
+
+    status = SDIO->STA;
+    /*响应CRC错误/接收到响应(CRC校验成功)/命令响应超时*/
+    while (!(status & (SDIO_FLAG_CCRCFAIL | SDIO_FLAG_CMDREND | SDIO_FLAG_CTIMEOUT)))
+    {
+        status = SDIO->STA;
+    }
+
+    /*命令响应超时*/
+    if (status & SDIO_FLAG_CTIMEOUT)
+    {
+        errorstatus = SD_CMD_RSP_TIMEOUT;
+        SDIO_ClearFlag(SDIO_FLAG_CTIMEOUT);
+        return(errorstatus);
+    }
+    /*响应CRC错误*/
+    else if (status & SDIO_FLAG_CCRCFAIL)
+    {
+        errorstatus = SD_CMD_CRC_FAIL;
+        SDIO_ClearFlag(SDIO_FLAG_CCRCFAIL);
+        return(errorstatus);
+    }
+
+    /*检查命令匹配*/
+    if (SDIO_GetCommandResponse() != cmd)
+    {
+        errorstatus = SD_ILLEGAL_CMD;
+        return(errorstatus);
+    }
+
+    /*清除所有SDIO静态标志*/
+    SDIO_ClearFlag(SDIO_STATIC_FLAGS);
+
+    /*接收R1响应*/
+    response_r1 = SDIO_GetResponse(SDIO_RESP1);
+
+    if ((response_r1 & SD_OCR_ERRORBITS) == SD_ALLZERO)
+    {
+        return(errorstatus);
+    }
+
+    if (response_r1 & SD_OCR_ADDR_OUT_OF_RANGE)
+    {
+        return(SD_ADDR_OUT_OF_RANGE);
+    }
+
+    if (response_r1 & SD_OCR_ADDR_MISALIGNED)
+    {
+        return(SD_ADDR_MISALIGNED);
+    }
+
+    if (response_r1 & SD_OCR_BLOCK_LEN_ERR)
+    {
+        return(SD_BLOCK_LEN_ERR);
+    }
+
+    if (response_r1 & SD_OCR_ERASE_SEQ_ERR)
+    {
+        return(SD_ERASE_SEQ_ERR);
+    }
+
+    if (response_r1 & SD_OCR_BAD_ERASE_PARAM)
+    {
+        return(SD_BAD_ERASE_PARAM);
+    }
+
+    if (response_r1 & SD_OCR_WRITE_PROT_VIOLATION)
+    {
+        return(SD_WRITE_PROT_VIOLATION);
+    }
+
+    if (response_r1 & SD_OCR_LOCK_UNLOCK_FAILED)
+    {
+        return(SD_LOCK_UNLOCK_FAILED);
+    }
+
+    if (response_r1 & SD_OCR_COM_CRC_FAILED)
+    {
+        return(SD_COM_CRC_FAILED);
+    }
+
+    if (response_r1 & SD_OCR_ILLEGAL_CMD)
+    {
+        return(SD_ILLEGAL_CMD);
+    }
+
+    if (response_r1 & SD_OCR_CARD_ECC_FAILED)
+    {
+        return(SD_CARD_ECC_FAILED);
+    }
+
+    if (response_r1 & SD_OCR_CC_ERROR)
+    {
+        return(SD_CC_ERROR);
+    }
+
+    if (response_r1 & SD_OCR_GENERAL_UNKNOWN_ERROR)
+    {
+        return(SD_GENERAL_UNKNOWN_ERROR);
+    }
+
+    if (response_r1 & SD_OCR_STREAM_READ_UNDERRUN)
+    {
+        return(SD_STREAM_READ_UNDERRUN);
+    }
+
+    if (response_r1 & SD_OCR_STREAM_WRITE_OVERRUN)
+    {
+        return(SD_STREAM_WRITE_OVERRUN);
+    }
+
+    if (response_r1 & SD_OCR_CID_CSD_OVERWRIETE)
+    {
+        return(SD_CID_CSD_OVERWRITE);
+    }
+
+    if (response_r1 & SD_OCR_WP_ERASE_SKIP)
+    {
+        return(SD_WP_ERASE_SKIP);
+    }
+
+    if (response_r1 & SD_OCR_CARD_ECC_DISABLED)
+    {
+        return(SD_CARD_ECC_DISABLED);
+    }
+
+    if (response_r1 & SD_OCR_ERASE_RESET)
+    {
+        return(SD_ERASE_RESET);
+    }
+
+    if (response_r1 & SD_OCR_AKE_SEQ_ERROR)
+    {
+        return(SD_AKE_SEQ_ERROR);
+    }
+
+    return(errorstatus);
+}
+
+/**
+ * 检查R3响应(OCR寄存器)的错误状态
+ *
+ * @return: SD卡错误码
+ */
+static SD_Error CmdResp3Error(void)
+{
+SD_Error errorstatus = SD_OK;
+uint32_t status;
+
+    status = SDIO->STA;
+    /*响应CRC错误/接收到响应(CRC校验成功)/命令响应超时*/
+    while (!(status & (SDIO_FLAG_CCRCFAIL | SDIO_FLAG_CMDREND | SDIO_FLAG_CTIMEOUT)))
+    {
+        status = SDIO->STA;
+    }
+
+    /*
+        R3响应没有CRC7校验, 0b1111111代替CRC7,
+        所以当接收到响应时, SDIO_FLAG_CCRCFAIL和SDIO_FLAG_CMDREND
+        两者之一置位
+    */
+    /*命令响应超时*/
+    if (status & SDIO_FLAG_CTIMEOUT)
+    {
+        errorstatus = SD_CMD_RSP_TIMEOUT;
+        SDIO_ClearFlag(SDIO_FLAG_CTIMEOUT);
+        return(errorstatus);
+    }
+
+    /*清除所有SDIO静态标志*/
+    SDIO_ClearFlag(SDIO_STATIC_FLAGS);
+
+    return(errorstatus);
+}
+
+/**
+ * 检查R2响应(CID和CSD寄存器)的错误状态
+ *
+ * @return: SD卡错误码
+ */
+static SD_Error CmdResp2Error(void)
+{
+SD_Error errorstatus = SD_OK;
+uint32_t status;
+
+    status = SDIO->STA;
+    /*响应CRC错误/接收到响应(CRC校验成功)/命令响应超时*/
+    while (!(status & (SDIO_FLAG_CCRCFAIL | SDIO_FLAG_CTIMEOUT | SDIO_FLAG_CMDREND)))
+    {
+        status = SDIO->STA;
+    }
+
+    /*命令响应超时*/
+    if (status & SDIO_FLAG_CTIMEOUT)
+    {
+        errorstatus = SD_CMD_RSP_TIMEOUT;
+        SDIO_ClearFlag(SDIO_FLAG_CTIMEOUT);
+        return(errorstatus);
+    }
+    /*响应CRC错误*/
+    else if (status & SDIO_FLAG_CCRCFAIL)
+    {
+        errorstatus = SD_CMD_CRC_FAIL;
+        SDIO_ClearFlag(SDIO_FLAG_CCRCFAIL);
+        return(errorstatus);
+    }
+
+    /*清除所有SDIO静态标志*/
+    SDIO_ClearFlag(SDIO_STATIC_FLAGS);
+
+    return(errorstatus);
+}
+
+/**
+ * 检查R6响应(发布RCA)的错误状态
+ *
+ * @param cmd: 当前发送的命令, 命令应该为CMD3
+ *
+ * @param prca: 保存RCA的变量指针
+ *
+ * @return: SD卡错误码
+ */
+static SD_Error CmdResp6Error(uint8_t cmd, uint16_t *prca)
+{
+SD_Error errorstatus = SD_OK;
+uint32_t status;
+uint32_t response_r1;
+
+    status = SDIO->STA;
+    /*响应CRC错误/接收到响应(CRC校验成功)/命令响应超时*/
+    while (!(status & (SDIO_FLAG_CCRCFAIL | SDIO_FLAG_CTIMEOUT | SDIO_FLAG_CMDREND)))
+    {
+        status = SDIO->STA;
+    }
+
+    /*命令响应超时*/
+    if (status & SDIO_FLAG_CTIMEOUT)
+    {
+        errorstatus = SD_CMD_RSP_TIMEOUT;
+        SDIO_ClearFlag(SDIO_FLAG_CTIMEOUT);
+        return(errorstatus);
+    }
+    /*响应CRC错误*/
+    else if (status & SDIO_FLAG_CCRCFAIL)
+    {
+        errorstatus = SD_CMD_CRC_FAIL;
+        SDIO_ClearFlag(SDIO_FLAG_CCRCFAIL);
+        return(errorstatus);
+    }
+
+    /*检查命令匹配*/
+    if (SDIO_GetCommandResponse() != cmd)
+    {
+        errorstatus = SD_ILLEGAL_CMD;
+        return(errorstatus);
+    }
+
+    /*清除所有SDIO静态标志*/
+    SDIO_ClearFlag(SDIO_STATIC_FLAGS);
+
+    /*接收R6响应*/
+    response_r1 = SDIO_GetResponse(SDIO_RESP1);
+
+    if (SD_ALLZERO == (response_r1 & (SD_R6_GENERAL_UNKNOWN_ERROR | SD_R6_ILLEGAL_CMD | SD_R6_COM_CRC_FAILED)))
+    {
+        *prca = (uint16_t) (response_r1 >> 16);
+        return(errorstatus);
+    }
+
+    if (response_r1 & SD_R6_GENERAL_UNKNOWN_ERROR)
+    {
+        return(SD_GENERAL_UNKNOWN_ERROR);
+    }
+
+    if (response_r1 & SD_R6_ILLEGAL_CMD)
+    {
+        return(SD_ILLEGAL_CMD);
+    }
+
+    if (response_r1 & SD_R6_COM_CRC_FAILED)
+    {
+        return(SD_COM_CRC_FAILED);
+    }
+
+    return(errorstatus);
+}
 
 /*******************************************************************************
 
