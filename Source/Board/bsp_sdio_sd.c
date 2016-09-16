@@ -99,20 +99,24 @@
                                     全局变量
 
 *******************************************************************************/
+/*SD卡信息*/
+SD_CardInfo SDCardInfo;
+
 /*SD卡类型*/
 static uint32_t CardType = SDIO_STD_CAPACITY_SD_CARD_V1_1;
 /*SD卡CSD,CID以及RCA数据*/
 static uint32_t CSD_Tab[4], CID_Tab[4], RCA = 0;
 /*SD卡状态数据*/
 static uint8_t SDSTATUS_Tab[16];
+
+#if defined(SD_DMA_MODE)
 /*标志是否需要停止传输命令(用于DMA传输)*/
 static __IO uint32_t StopCondition = 0;
 /*传输错误码(用于DMA传输)*/
 static __IO SD_Error TransferError = SD_OK;
 /*SD/DMA传输结束标志(用于DMA传输)*/
 static __IO uint32_t TransferEnd = 0, DMAEndOfTransfer = 0;
-/*SD卡信息*/
-SD_CardInfo SDCardInfo;
+#endif  /* defined(SD_DMA_MODE) */
 
 SDIO_InitTypeDef SDIO_InitStructure;
 SDIO_CmdInitTypeDef SDIO_CmdInitStructure;
@@ -523,19 +527,6 @@ uint32_t response_r1;
                                     底层接口
 
 *******************************************************************************/
-/* 接口定义 ------------------------------------------------------------------*/
-#define SD_SDIO_DMA                     DMA2
-#define SD_SDIO_DMA_CLK                 RCC_AHBPeriph_DMA2
-#define SD_SDIO_DMA_CHANNEL             DMA2_Channel4
-#define SD_SDIO_DMA_FLAG_TC             DMA2_FLAG_TC4
-#define SD_SDIO_DMA_FLAG_TE             DMA2_FLAG_TE4
-#define SD_SDIO_DMA_FLAG_HT             DMA2_FLAG_HT4
-#define SD_SDIO_DMA_FLAG_GL             DMA2_FLAG_GL4
-#define SD_SDIO_DMA_IRQn                DMA2_Channel4_5_IRQn
-#define SD_SDIO_DMA_IRQHANDLER          DMA2_Channel4_5_IRQHandler
-#define SDIO_PreemptPriority            ( 0 )
-#define SDIO_DMA_PreemptPriority        ( 1 )
-
 /* 外设驱动 ------------------------------------------------------------------*/
 /*SDIO接口解除初始化*/
 void SD_LowLevel_DeInit(void)
@@ -585,16 +576,19 @@ GPIO_InitTypeDef  GPIO_InitStructure;
     /*!< Enable the SDIO AHB Clock */
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_SDIO, ENABLE);
 
+#if defined(SD_DMA_MODE)
     /*!< Enable the DMA2 Clock */
     RCC_AHBPeriphClockCmd(SD_SDIO_DMA_CLK, ENABLE);
 
     /*设置NVIC*/
-    cpu_NVIC_SetPriority(SDIO_IRQn, SDIO_PreemptPriority, 0);
-    cpu_NVIC_SetPriority(SD_SDIO_DMA_IRQn, SDIO_DMA_PreemptPriority, 0);
+    cpu_NVIC_SetPriority(SDIO_IRQn, SDIO_IRQ_PreemptPriority, 0);
+    cpu_NVIC_SetPriority(SD_SDIO_DMA_IRQn, SDIO_DMA_IRQ_PreemptPriority, 0);
     cpu_NVIC_EnableIRQ(SDIO_IRQn);
     cpu_NVIC_EnableIRQ(SD_SDIO_DMA_IRQn);
+#endif  /* defined(SD_DMA_MODE) */
 }
 
+#if defined(SD_DMA_MODE)
 /**
  * 配置DMA通道实现SDIO发送
  *
@@ -666,5 +660,10 @@ DMA_InitTypeDef DMA_InitStructure;
     /*!< SDIO DMA CHANNEL enable */
     DMA_Cmd(SD_SDIO_DMA_CHANNEL, ENABLE);
 }
+#endif  /* defined(SD_DMA_MODE) */
 
 /* 中断函数 ------------------------------------------------------------------*/
+#if defined(SD_DMA_MODE)
+SD_Error SD_ProcessIRQSrc(void);
+void SD_ProcessDMAIRQ(void);
+#endif  /* defined(SD_DMA_MODE) */

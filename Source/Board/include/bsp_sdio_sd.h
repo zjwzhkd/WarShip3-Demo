@@ -12,6 +12,23 @@
 /* 头文件 --------------------------------------------------------------------*/
 #include "cpu.h"
 
+/* 接口配置 ------------------------------------------------------------------*/
+#define SD_DMA_MODE
+
+#if defined(SD_DMA_MODE)
+    #define SD_SDIO_DMA                     DMA2
+    #define SD_SDIO_DMA_CLK                 RCC_AHBPeriph_DMA2
+    #define SD_SDIO_DMA_CHANNEL             DMA2_Channel4
+    #define SD_SDIO_DMA_FLAG_TC             DMA2_FLAG_TC4
+    #define SD_SDIO_DMA_FLAG_TE             DMA2_FLAG_TE4
+    #define SD_SDIO_DMA_FLAG_HT             DMA2_FLAG_HT4
+    #define SD_SDIO_DMA_FLAG_GL             DMA2_FLAG_GL4
+    #define SD_SDIO_DMA_IRQn                DMA2_Channel4_5_IRQn
+    #define SD_SDIO_DMA_IRQHandler          DMA2_Channel4_5_IRQHandler
+    #define SDIO_IRQ_PreemptPriority        ( 0 )
+    #define SDIO_DMA_IRQ_PreemptPriority    ( 1 )
+#endif
+
 /* SD数据类型 ----------------------------------------------------------------*/
 /*SD错误枚举*/
 typedef enum
@@ -273,12 +290,15 @@ SD_Error SD_Init(void);
 SD_Error SD_Erase(uint32_t startaddr, uint32_t endaddr);
 SD_Error SD_ReadBlocks(uint32_t *readbuff, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumberOfBlocks);
 SD_Error SD_WriteBlocks(uint32_t *writebuff, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumberOfBlocks);
+
+#if defined(SD_DMA_MODE)
 SD_Error SD_ReadBlocks_DMA(uint32_t *readbuff, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumberOfBlocks);
 SD_Error SD_WriteBlocks_DMA(uint32_t *writebuff, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumberOfBlocks);
 SD_Error SD_WaitReadOperation(void);
 SD_Error SD_WaitWriteOperation(void);
 SD_Error SD_ProcessIRQSrc(void);
 void SD_ProcessDMAIRQ(void);
+#endif
 
 /*外设控制函数*/
 SD_Error SD_GetCardInfo(SD_CardInfo *cardinfo);
