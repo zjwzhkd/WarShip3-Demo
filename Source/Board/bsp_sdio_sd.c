@@ -506,6 +506,174 @@ uint32_t response_r1;
     return(errorstatus);
 }
 
+/**
+ * 检查SD卡是否正在执行写操作(programming state)
+ *
+ * @param pstatus: 保存当前SD卡状态的变量的指针
+ *
+ * @return: SD卡错误码
+ */
+static SD_Error IsCardProgramming(uint8_t *pstatus)
+{
+SDIO_CmdInitTypeDef SDIO_CmdInitStructure;
+SD_Error errorstatus = SD_OK;
+__IO uint32_t respR1 = 0, status = 0;   /*防止优化*/
+
+    /* CMD13: SEND_STATUS -----------------------------------------------------/
+    /* 发送CMD13获取SD卡状态(Card State) */
+    /* Argument: -[31:16]: SD卡相对地址(RCA)
+                 -[15:0]: 保留位, 设置为0 */
+    /* CMD响应: R1 */
+    SDIO_CmdInitStructure.SDIO_Argument = (uint32_t) RCA << 16;
+    SDIO_CmdInitStructure.SDIO_CmdIndex = SD_CMD_SEND_STATUS;
+    SDIO_CmdInitStructure.SDIO_Response = SDIO_Response_Short;
+    SDIO_CmdInitStructure.SDIO_Wait = SDIO_Wait_No;
+    SDIO_CmdInitStructure.SDIO_CPSM = SDIO_CPSM_Enable;
+    SDIO_SendCommand(&SDIO_CmdInitStructure);
+
+    status = SDIO->STA;
+    /*响应CRC错误/接收到响应(CRC校验成功)/命令响应超时*/
+    while (!(status & (SDIO_FLAG_CCRCFAIL | SDIO_FLAG_CMDREND | SDIO_FLAG_CTIMEOUT)))
+    {
+        status = SDIO->STA;
+    }
+
+    /*命令响应超时*/
+    if (status & SDIO_FLAG_CTIMEOUT)
+    {
+        errorstatus = SD_CMD_RSP_TIMEOUT;
+        SDIO_ClearFlag(SDIO_FLAG_CTIMEOUT);
+        return(errorstatus);
+    }
+    /*响应CRC错误*/
+    else if (status & SDIO_FLAG_CCRCFAIL)
+    {
+        errorstatus = SD_CMD_CRC_FAIL;
+        SDIO_ClearFlag(SDIO_FLAG_CCRCFAIL);
+        return(errorstatus);
+    }
+
+    status = (uint32_t)SDIO_GetCommandResponse();
+
+    /*检查命令匹配*/
+    if (status != SD_CMD_SEND_STATUS)
+    {
+        errorstatus = SD_ILLEGAL_CMD;
+        return(errorstatus);
+    }
+
+    /*清除所有SDIO静态标志*/
+    SDIO_ClearFlag(SDIO_STATIC_FLAGS);
+
+    /*接收R1响应*/
+    respR1 = SDIO_GetResponse(SDIO_RESP1);
+
+    /*获取SD卡状态*/
+    *pstatus = (uint8_t) ((respR1 >> 9) & 0x0000000F);
+
+    if ((respR1 & SD_OCR_ERRORBITS) == SD_ALLZERO)
+    {
+        return(errorstatus);
+    }
+
+    if (respR1 & SD_OCR_ADDR_OUT_OF_RANGE)
+    {
+        return(SD_ADDR_OUT_OF_RANGE);
+    }
+
+    if (respR1 & SD_OCR_ADDR_MISALIGNED)
+    {
+        return(SD_ADDR_MISALIGNED);
+    }
+
+    if (respR1 & SD_OCR_BLOCK_LEN_ERR)
+    {
+        return(SD_BLOCK_LEN_ERR);
+    }
+
+    if (respR1 & SD_OCR_ERASE_SEQ_ERR)
+    {
+        return(SD_ERASE_SEQ_ERR);
+    }
+
+    if (respR1 & SD_OCR_BAD_ERASE_PARAM)
+    {
+        return(SD_BAD_ERASE_PARAM);
+    }
+
+    if (respR1 & SD_OCR_WRITE_PROT_VIOLATION)
+    {
+        return(SD_WRITE_PROT_VIOLATION);
+    }
+
+    if (respR1 & SD_OCR_LOCK_UNLOCK_FAILED)
+    {
+        return(SD_LOCK_UNLOCK_FAILED);
+    }
+
+    if (respR1 & SD_OCR_COM_CRC_FAILED)
+    {
+        return(SD_COM_CRC_FAILED);
+    }
+
+    if (respR1 & SD_OCR_ILLEGAL_CMD)
+    {
+        return(SD_ILLEGAL_CMD);
+    }
+
+    if (respR1 & SD_OCR_CARD_ECC_FAILED)
+    {
+        return(SD_CARD_ECC_FAILED);
+    }
+
+    if (respR1 & SD_OCR_CC_ERROR)
+    {
+        return(SD_CC_ERROR);
+    }
+
+    if (respR1 & SD_OCR_GENERAL_UNKNOWN_ERROR)
+    {
+        return(SD_GENERAL_UNKNOWN_ERROR);
+    }
+
+    if (respR1 & SD_OCR_STREAM_READ_UNDERRUN)
+    {
+        return(SD_STREAM_READ_UNDERRUN);
+    }
+
+    if (respR1 & SD_OCR_STREAM_WRITE_OVERRUN)
+    {
+        return(SD_STREAM_WRITE_OVERRUN);
+    }
+
+    if (respR1 & SD_OCR_CID_CSD_OVERWRIETE)
+    {
+        return(SD_CID_CSD_OVERWRITE);
+    }
+
+    if (respR1 & SD_OCR_WP_ERASE_SKIP)
+    {
+        return(SD_WP_ERASE_SKIP);
+    }
+
+    if (respR1 & SD_OCR_CARD_ECC_DISABLED)
+    {
+        return(SD_CARD_ECC_DISABLED);
+    }
+
+    if (respR1 & SD_OCR_ERASE_RESET)
+    {
+        return(SD_ERASE_RESET);
+    }
+
+    if (respR1 & SD_OCR_AKE_SEQ_ERROR)
+    {
+        return(SD_AKE_SEQ_ERROR);
+    }
+
+    return(errorstatus);
+}
+
 /*******************************************************************************
 
                                     底层接口
