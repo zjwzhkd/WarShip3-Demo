@@ -29,6 +29,14 @@
     #define SDIO_DMA_IRQ_PreemptPriority    ( 1 )
 #endif
 
+/*
+    SDIO时钟计算公式:SDIO_CK时钟=SDIOCLK/[clkdiv+2];其中,SDIOCLK一般为72Mhz,
+    SDIO初始化频率,最大400KHz,
+    SDIO传输频率,最大24MHz
+*/
+#define SDIO_INIT_CLK_DIV               ((uint8_t)0xB2)
+#define SDIO_TRANSFER_CLK_DIV           ((uint8_t)0x01)
+
 /* SD数据类型 ----------------------------------------------------------------*/
 /*SD错误枚举*/
 typedef enum

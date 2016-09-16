@@ -10,12 +10,9 @@
 #include <string.h>
 /*******************************************************************************
 
-                                    参数定义
+                                   内部宏定义
 
 *******************************************************************************/
-/*SDIO数据块大小*/
-#define DATA_BLOCK_SIZE                 ((uint32_t)SDIO_DataBlockSize_512b)
-
 /* SDIO Static flags, TimeOut, FIFO Address */
 #define SDIO_STATIC_FLAGS               ((uint32_t)(SDIO_FLAG_CCRCFAIL | SDIO_FLAG_DCRCFAIL | SDIO_FLAG_CTIMEOUT |\
                                                     SDIO_FLAG_DTIMEOUT | SDIO_FLAG_TXUNDERR | SDIO_FLAG_RXOVERR  |\
@@ -24,19 +21,6 @@
 #define SDIO_CMD0TIMEOUT                ((uint32_t)0x00010000)
 #define SDIO_FIFO_ADDRESS               ((uint32_t)&SDIO->FIFO)
 
-/*
-    SDIO时钟计算公式:SDIO_CK时钟=SDIOCLK/[clkdiv+2];其中,SDIOCLK一般为72Mhz,
-    SDIO初始化频率,最大400KHz,
-    SDIO传输频率,最大24MHz
-*/
-#define SDIO_INIT_CLK_DIV               ((uint8_t)0xB2)
-#define SDIO_TRANSFER_CLK_DIV           ((uint8_t)0x01)
-
-/*******************************************************************************
-
-                                   内部宏定义
-
-*******************************************************************************/
 /* Mask for errors Card Status R1 (OCR Register) */
 #define SD_OCR_ADDR_OUT_OF_RANGE        ((uint32_t)0x80000000)
 #define SD_OCR_ADDR_MISALIGNED          ((uint32_t)0x40000000)
@@ -91,7 +75,7 @@
 #define SD_CCCC_WRITE_PROT              ((uint32_t)0x00000040)
 #define SD_CCCC_ERASE                   ((uint32_t)0x00000020)
 
-/*CMD8: 获取SD卡版本*/
+/*CMD8: 发送SD卡接口状态(主机供电电压)*/
 #define SDIO_SEND_IF_COND               ((uint32_t)SD_CMD_HS_SEND_EXT_CSD)
 
 /*******************************************************************************
@@ -529,7 +513,7 @@ uint32_t response_r1;
 *******************************************************************************/
 /* 外设驱动 ------------------------------------------------------------------*/
 /*SDIO接口解除初始化*/
-void SD_LowLevel_DeInit(void)
+static void SD_LowLevel_DeInit(void)
 {
 GPIO_InitTypeDef  GPIO_InitStructure;
 
@@ -556,7 +540,7 @@ GPIO_InitTypeDef  GPIO_InitStructure;
 }
 
 /*SDIO接口底层初始化*/
-void SD_LowLevel_Init(void)
+static void SD_LowLevel_Init(void)
 {
 GPIO_InitTypeDef  GPIO_InitStructure;
 
@@ -596,7 +580,7 @@ GPIO_InitTypeDef  GPIO_InitStructure;
  *
  * @param BufferSize: 缓存大小(字节)
  */
-void SD_LowLevel_DMA_TxConfig(uint32_t *BufferSRC, uint32_t BufferSize)
+static void SD_LowLevel_DMA_TxConfig(uint32_t *BufferSRC, uint32_t BufferSize)
 {
 DMA_InitTypeDef DMA_InitStructure;
 
@@ -632,7 +616,7 @@ DMA_InitTypeDef DMA_InitStructure;
  *
  * @param BufferSize: 缓存大小(字节)
  */
-void SD_LowLevel_DMA_RxConfig(uint32_t *BufferDST, uint32_t BufferSize)
+static void SD_LowLevel_DMA_RxConfig(uint32_t *BufferDST, uint32_t BufferSize)
 {
 DMA_InitTypeDef DMA_InitStructure;
 
