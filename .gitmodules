@@ -1,7 +1,7 @@
 [submodule "Source/CPU"]
 	path = Source/CPU
 	url = https://github.com/zjwzhkd/CPU.git
-	branch = cpu-stm32f1
+	branch = master
 [submodule "Source/Scheduler"]
 	path = Source/Scheduler
 	url = https://github.com/zjwzhkd/Scheduler.git
